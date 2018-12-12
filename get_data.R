@@ -17,3 +17,5 @@ langdist1 <- melt(g)[melt(upper.tri(g))$value,]
 names(langdist1) <- c("c1", "c2", "lang_dist") 
 
 # change git repository
+# 
+# ## this is bullshit
