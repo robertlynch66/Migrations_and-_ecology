@@ -8,6 +8,9 @@
 #load_pops_from_googlesheets <- function() {
 # Read in the csv files populations with social status
 library(googlesheets)
+library(dplyr)
+(my_sheets <- gs_ls())
+my_sheets %>% glimpse()
 # get the populations google sheet
   # get the geographic distances google sheet
   geogdist <- gs_title("geo_dists.csv")
@@ -23,12 +26,12 @@ library(googlesheets)
   names(geogdist) <- c("m1", "m2", "geog_dist") 
   
   
-  ##################READ in THE Marttix
-  # Read lingusitic distances 
+  # Read in lingusitic distances 
+  # ling_dists.csv
   lingdist <- gs_title("ling_dists.csv")
   # get the sheet
   gs_ws_ls(lingdist)
-  lingdist<-gs_read(ss=lingdist, ws="ling_dists", header=TRUE, sep= ",",row.names=1)
+  lingdist<-gs_read(ss=lingdist, ws="Sheet1", header=TRUE, sep= ",",row.names=1)
   lingdist<-as.dist(lingdist) # turn the data into distances 
   lingmatx<-as.matrix(lingdist) #makes a distance matrix
   library("reshape")
@@ -75,11 +78,27 @@ keyvars$PROJECT_ID <- NULL
 path <- "../data files/"
 file<- "person_data.rds"
 p <- readRDS(paste0(path, file))
+
+
+
+## make a dummy variable for farm owners (conservative)
+# \\< denotes beginnning of word and \\> denotes the end
+p$farmers <- ifelse(grepl("\\<maanviljelijä\\>",p$profession),1,
+                    ifelse(grepl("\\<emäntä\\>",p$profession),1,
+                           ifelse(grepl("\\<pienviljelijä\\>",p$profession),1, 
+                               ifelse(grepl("\\<maanvilj\\>",p$profession),1,0))))
+
+
+
+# filter data to farmers
+
 # select the variables you need
 
 p <- p %>% select ("id","sex","primaryperson","birthyear","birthmunicipality","returnedkarelia","org_muni_karelia","dest_muni_finland",
-                   "ret_muni_karelia","kids","birthregion",
+                   "ret_muni_karelia","kids","birthregion","profession","farmers","farmtotalarea",
                    "weddingyear", "profession_en","agriculture","education","movesafter1945")
+
+
 # filter data - all born in karelia and birthyears you want
 p <- p %>% filter(birthregion == "karelia" & primaryperson==TRUE & birthyear<1940 & birthyear>1870)
 
@@ -87,12 +106,13 @@ p <- p %>% filter(birthregion == "karelia" & primaryperson==TRUE & birthyear<194
 # link to key vars
 # origin and destination
 p$birthmunicipality <- tolower(p$birthmunicipality)
-vars$Municipality <- tolower(vars$Municipality)
-p <- p %>% left_join(vars, by=c("birthmunicipality"="Municipality"))%>% as.data.frame()
+keyvars$Municipality <- tolower(keyvars$Municipality)
+p <- p %>% left_join(keyvars, by=c("birthmunicipality"="Municipality"))%>% as.data.frame()
 # rename variables
 names(p) <- c("id","sex","primaryperson","birthyear","birthmunicipality","returnedkarelia","org_muni_karelia","dest_muni_finland",
-              "ret_muni_karelia","kids","birthregion","weddingyear",   
-              "profession_en","agriculture","education","movesafter1945","birth_muni_id","birth_area","birth_rainfall",
+              "ret_muni_karelia","kids","birthregion",  
+              "profession","farmers","farmtotalarea","weddingyear","profession_en","agriculture","education","movesafter1945",
+              "birth_muni_id","birth_area","birth_rainfall",
               "birth_lakeperc","birth__moraineperc","birth__riverperc","birth__clayperc","birth_org_gravelperc","birth__peatperc",
               "birth__rockperc",
               "birth__forestperc","birth__heatsum","birth__farmedperc","birth__fieldperc","birth__income","birth__livestock100ha",
@@ -102,37 +122,37 @@ names(p) <- c("id","sex","primaryperson","birthyear","birthmunicipality","return
 #p$birth_municipal_id <- p$birth_muni_id
 #p$birth_muni_id <- NULL
 ## get origin variables
-names(vars) <- c("municipality","org_muni_id","org_area","org_rainfall",
+names(keyvars) <- c("municipality","org_muni_id","org_area","org_rainfall",
                  "org_lakeperc","org_moraineperc","org_riverperc","org_clayperc","org_gravelperc","org_peatperc","org_rockperc",
                  "org_forestperc","org_heatsum","org_farmedperc","org_fieldperc","org_income","org_livestock100ha","org_taxes",
                 "org_pop1945","org_heightrange","org_heightmean","org_heightmedian",       
                  "org_lat","org_long","org_municipal_id")
 #vars$x <- NULL
 p$org_muni_karelia <- tolower(p$org_muni_karelia)
-vars$municipality <- tolower(vars$municipality)
-p <- p %>% left_join(vars, by=c("org_muni_karelia"="municipality"))
+keyvars$municipality <- tolower(keyvars$municipality)
+p <- p %>% left_join(keyvars, by=c("org_muni_karelia"="municipality"))
 # get destination variables
 # rename vars before joining
-names(vars) <- c("municipality","dest_muni_id","dest_area","dest_rainfall",
+names(keyvars) <- c("municipality","dest_muni_id","dest_area","dest_rainfall",
 "dest_lakeperc","dest_moraineperc","dest_riverperc","dest_clayperc","dest_gravelperc","dest_peatperc","dest_rockperc",
 "dest_forestperc","dest_heatsum","dest_farmedperc","dest_fieldperc","dest_income","dest_livestock100ha","dest_taxes",          
 "dest_pop1945","dest_heightrange","dest_heightmean","dest_heightmedian",       
 "dest_lat","dest_long","dest_municipal_id")
 #vars$x <- NULL
 p$dest_muni_finland <- tolower(p$dest_muni_finland)
-vars$municipality <- tolower(vars$municipality)
-p <- p %>% left_join(vars, by=c("dest_muni_finland"="municipality"))
+keyvars$municipality <- tolower(keyvars$municipality)
+p <- p %>% left_join(keyvars, by=c("dest_muni_finland"="municipality"))
 
 # get return destination variables
 # rename vars before joining
-names(vars) <- c("municipality","ret_muni_id","ret_area","ret_rainfall",
+names(keyvars) <- c("municipality","ret_muni_id","ret_area","ret_rainfall",
                  "ret_lakeperc","ret_moraineperc","ret_riverperc","ret_clayperc","ret_gravelperc","ret_peatperc","ret_rockperc",
                  "ret_forestperc","ret_heatsum","ret_farmedperc","ret_fieldperc","ret_income","ret_livestock100ha","ret_taxes",          
                  "ret_pop1945","ret_heightrange","ret_heightmean","ret_heightmedian",       
                  "ret_lat","ret_long","ret_municipal_id")
 p$ret_muni_karelia <- tolower(p$ret_muni_karelia)
-vars$municipality <- tolower(vars$municipality)
-p <- p %>% left_join(vars, by=c("ret_muni_karelia"="municipality"))
+keyvars$municipality <- tolower(keyvars$municipality)
+p <- p %>% left_join(keyvars, by=c("ret_muni_karelia"="municipality"))
 
 
 # link the geo and lingusitic distnace matrices to p
@@ -158,7 +178,11 @@ p$m2 <- NULL
 colnames(p)[colnames(p)=="geog_dist"] <- "geog_dist_evacdest_to_retdest"
 colnames(p)[colnames(p)=="ling_dist"] <- "ling_dist_evacdest_to_retdest"
 
-write.csv(p,"newdata.csv")
+write.csv(p,"ecology_data.csv")
 # count missing data
 
 saveRDS(p, "../data files/ecology_data.rds")
+
+
+## read in data
+ecology_data <- readRDS("C:/Users/rofrly/Dropbox/Github/data files/ecology_data.rds")
