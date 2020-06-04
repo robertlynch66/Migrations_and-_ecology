@@ -2,4 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-.httr-oauth
+.httr-oaut
+person_data.rds
+person_data.csv
